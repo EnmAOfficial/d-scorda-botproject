@@ -26,3 +26,9 @@ AI_MANAGEMENT_PREFIX = "ai-"
 
 # Bot açıldığında AI varsayılan global durumu (True = açık)
 GLOBAL_AI_DEFAULT_ACTIVE = True
+
+import os
+
+AUTH_ROLE_IDS = [
+    int(rid.strip()) for rid in os.getenv("AUTH_ROLE_IDS", "").split(",") if rid.strip().isdigit()
+]
