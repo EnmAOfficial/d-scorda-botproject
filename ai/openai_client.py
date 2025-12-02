@@ -1,6 +1,7 @@
 from openai import OpenAI
-from .prompts import build_messages
+from ai.prompts import build_messages
 from config import OPENAI_API_KEY
+
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
