@@ -4,3 +4,4 @@ audioop-lts
 openai==1.37.0
 httpx==0.24.1
 anyio<4
+requests
