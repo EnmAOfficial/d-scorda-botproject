@@ -1,6 +1,6 @@
 import discord
+from commands.admin import AdminCommands
 from discord.ext import commands
-
 from config import DISCORD_TOKEN
 from commands.admin import register_admin_commands
 from ai.state import is_ai_allowed_in_channel
@@ -20,11 +20,9 @@ intents.message_content = True
 
 bot = MyBot(command_prefix="!", intents=intents)
 
-
 @bot.event
 async def on_ready():
-    print(f"[BOOT] Bot giriş yaptı: {bot.user} (ID: {bot.user.id})")
-
+    print(f"{bot.user} giriş yaptı!")
 
 @bot.event
 async def on_message(message: discord.Message):
