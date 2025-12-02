@@ -17,39 +17,36 @@ class AdminCommands(commands.Cog):
         self.bot = bot
 
     # ----------------------------------------------------
-    # ❗ Yetki Kontrolü – Sadece belirlenen rol kullanabilir
+    # Rol yetkisi kontrolü
     # ----------------------------------------------------
     def has_admin_role(self, interaction: discord.Interaction) -> bool:
         role_ids = [r.id for r in interaction.user.roles]
         return ADMIN_ROLE_ID in role_ids
 
-    # ====================================================
-    # /ai-dur → Bu kanalda AI'yı durdur
-    # ====================================================
+    # ============================================================
+    # /ai-dur  → Bu kanalda AI kapat
+    # ============================================================
     @app_commands.command(
         name="ai-dur",
         description="Bu kanalda yapay zekayı devre dışı bırakır."
     )
     async def ai_dur(self, interaction: discord.Interaction):
 
-        # Yetki kontrolü
         if not self.has_admin_role(interaction):
             await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.",
-                ephemeral=True
+                "❌ Bu komutu kullanmaya yetkin yok.", ephemeral=True
             )
             return
 
         toggle_channel_ai(interaction.channel_id, False)
 
         await interaction.response.send_message(
-            f"🛑 AI **bu kanalda** devre dışı bırakıldı.",
-            ephemeral=False
+            "🛑 AI **bu kanalda** devre dışı bırakıldı."
         )
 
-    # ====================================================
-    # /ai-basla → Bu kanalda AI'yı başlat
-    # ====================================================
+    # ============================================================
+    # /ai-basla → Bu kanalda AI aç
+    # ============================================================
     @app_commands.command(
         name="ai-basla",
         description="Bu kanalda yapay zekayı aktif eder."
@@ -58,21 +55,19 @@ class AdminCommands(commands.Cog):
 
         if not self.has_admin_role(interaction):
             await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.",
-                ephemeral=True
+                "❌ Bu komutu kullanmaya yetkin yok.", ephemeral=True
             )
             return
 
         toggle_channel_ai(interaction.channel_id, True)
 
         await interaction.response.send_message(
-            f"✅ AI **bu kanalda** aktif edildi.",
-            ephemeral=False
+            "✅ AI **bu kanalda** aktif edildi."
         )
 
-    # ====================================================
-    # /ai-aktif → Global olarak tüm sunucuda AI açılır
-    # ====================================================
+    # ============================================================
+    # /ai-aktif → Global AI aç
+    # ============================================================
     @app_commands.command(
         name="ai-aktif",
         description="Sunucudaki tüm kanallarda yapay zekayı aktif eder."
@@ -81,21 +76,19 @@ class AdminCommands(commands.Cog):
 
         if not self.has_admin_role(interaction):
             await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.",
-                ephemeral=True
+                "❌ Bu komutu kullanmaya yetkin yok.", ephemeral=True
             )
             return
 
         toggle_global_ai(True)
 
         await interaction.response.send_message(
-            f"🌍 AI **TÜM SUNUCUDA** aktif edildi.",
-            ephemeral=False
+            "🌍 AI **TÜM SUNUCUDA** aktif edildi."
         )
 
-    # ====================================================
-    # /ai-inaktif → Global olarak tüm AI kapanır
-    # ====================================================
+    # ============================================================
+    # /ai-inaktif → Global AI kapat
+    # ============================================================
     @app_commands.command(
         name="ai-inaktif",
         description="Sunucudaki tüm kanallarda yapay zekayı devre dışı bırakır."
@@ -104,24 +97,22 @@ class AdminCommands(commands.Cog):
 
         if not self.has_admin_role(interaction):
             await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.",
-                ephemeral=True
+                "❌ Bu komutu kullanmaya yetkin yok.", ephemeral=True
             )
             return
 
         toggle_global_ai(False)
 
         await interaction.response.send_message(
-            f"🛑 AI **TÜM SUNUCUDA** devre dışı bırakıldı.",
-            ephemeral=False
+            "🛑 AI **TÜM SUNUCUDA** devre dışı bırakıldı."
         )
 
 
-# ==========================================================
-# Slash komutlarını bota kaydeden fonksiyon
-# ==========================================================
+# Slash komutlarını kayıt eden fonksiyon
 def register_admin_commands(tree: app_commands.CommandTree):
-    tree.add_command(AdminCommands(tree.client).ai_dur)
-    tree.add_command(AdminCommands(tree.client).ai_basla)
-    tree.add_command(AdminCommands(tree.client).ai_aktif)
-    tree.add_command(AdminCommands(tree.client).ai_inaktif)
+    commands_obj = AdminCommands(tree.client)
+
+    tree.add_command(commands_obj.ai_dur)
+    tree.add_command(commands_obj.ai_basla)
+    tree.add_command(commands_obj.ai_aktif)
+    tree.add_command(commands_obj.ai_inaktif)
