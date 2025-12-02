@@ -1,119 +1,127 @@
 import discord
 from discord import app_commands
-from config import ADMIN_ROLE_IDS
-from ai.channel_rules import is_ticket_channel
+from discord.ext import commands
+
 from ai.state import (
-    set_global_active,
-    is_global_active,
-    set_channel_override,
-    is_ai_allowed_in_channel,
+    toggle_channel_ai,
+    toggle_global_ai,
+    is_channel_ai_active,
+    is_global_ai_active
 )
-# clear_channel_override istersen daha sonra da kullanırız
+
+from config import ADMIN_ROLE_ID
 
 
-def _is_admin_user(user: discord.Member) -> bool:
-    """Kullanıcının yetkili rollerden birine sahip olup olmadığını kontrol eder."""
-    if not ADMIN_ROLE_IDS:
-        # Hiç admin rolü tanımlanmadıysa, güvenlik açısından herkes admin sayılmasın istersen
-        # ama şimdilik boşsa herkese açmak yerine kapalı tutmak mantıklı.
-        return False
+class AdminCommands(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
 
-    user_role_ids = {r.id for r in user.roles}
-    return not ADMIN_ROLE_IDS.isdisjoint(user_role_ids)
+    # ----------------------------------------------------
+    # ❗ Yetki Kontrolü – Sadece belirlenen rol kullanabilir
+    # ----------------------------------------------------
+    def has_admin_role(self, interaction: discord.Interaction) -> bool:
+        role_ids = [r.id for r in interaction.user.roles]
+        return ADMIN_ROLE_ID in role_ids
 
-
-def register_admin_commands(tree: app_commands.CommandTree):
-    @tree.command(name="ai-komutlar", description="AI ile ilgili yönetim komutlarının listesini gösterir.")
-    async def ai_commands(interaction: discord.Interaction):
-        if not _is_admin_user(interaction.user):
-            return await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.", ephemeral=True
-            )
-
-        text = (
-            "**AI Yönetim Komutları**\n\n"
-            "`/ai-aktif`   → Yapay zekayı sunucu genelinde yeniden aktif eder.\n"
-            "`/ai-inaktif` → Yapay zekayı sunucu genelinde tamamen kapatır.\n"
-            "`/ai-basla`   → Sadece bulunduğun ticket kanalında AI yanıtlarını açar.\n"
-            "`/ai-dur`     → Sadece bulunduğun ticket kanalında AI yanıtlarını durdurur.\n"
-        )
-
-        await interaction.response.send_message(text, ephemeral=True)
-
-    @tree.command(name="ai-aktif", description="Yapay zekayı sunucu genelinde tekrar aktif eder.")
-    async def ai_aktif(interaction: discord.Interaction):
-        if not _is_admin_user(interaction.user):
-            return await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.", ephemeral=True
-            )
-
-        set_global_active(True)
-        await interaction.response.send_message(
-            "✅ Yapay zeka **SUNUCU GENELİNDE AKTİF** edildi.", ephemeral=True
-        )
-
-    @tree.command(name="ai-inaktif", description="Yapay zekayı sunucu genelinde tamamen kapatır.")
-    async def ai_inaktif(interaction: discord.Interaction):
-        if not _is_admin_user(interaction.user):
-            return await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.", ephemeral=True
-            )
-
-        set_global_active(False)
-        await interaction.response.send_message(
-            "⛔ Yapay zeka **SUNUCU GENELİNDE İNAKTİF** edildi.", ephemeral=True
-        )
-
-    @tree.command(
+    # ====================================================
+    # /ai-dur → Bu kanalda AI'yı durdur
+    # ====================================================
+    @app_commands.command(
         name="ai-dur",
-        description="Sadece bulunduğun ticket kanalında AI yanıtlarını durdurur.",
+        description="Bu kanalda yapay zekayı devre dışı bırakır."
     )
-    async def ai_dur(interaction: discord.Interaction):
-        if not _is_admin_user(interaction.user):
-            return await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.", ephemeral=True
-            )
+    async def ai_dur(self, interaction: discord.Interaction):
 
-        channel = interaction.channel
-        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-            return await interaction.response.send_message(
-                "Bu komut sadece metin kanallarında kullanılabilir.", ephemeral=True
+        # Yetki kontrolü
+        if not self.has_admin_role(interaction):
+            await interaction.response.send_message(
+                "❌ Bu komutu kullanma yetkin yok.",
+                ephemeral=True
             )
+            return
 
-        if not is_ticket_channel(channel):
-            return await interaction.response.send_message(
-                "Bu komut sadece ticket kanallarında kullanılabilir.", ephemeral=True
-            )
+        toggle_channel_ai(interaction.channel_id, False)
 
-        set_channel_override(channel.id, False)
         await interaction.response.send_message(
-            f"⛔ Bu kanalda AI yanıtları **DURDURULDU**. Diğer ticket kanalları etkilenmedi.",
-            ephemeral=True,
+            f"🛑 AI **bu kanalda** devre dışı bırakıldı.",
+            ephemeral=False
         )
 
-    @tree.command(
+    # ====================================================
+    # /ai-basla → Bu kanalda AI'yı başlat
+    # ====================================================
+    @app_commands.command(
         name="ai-basla",
-        description="Sadece bulunduğun ticket kanalında AI yanıtlarını başlatır.",
+        description="Bu kanalda yapay zekayı aktif eder."
     )
-    async def ai_basla(interaction: discord.Interaction):
-        if not _is_admin_user(interaction.user):
-            return await interaction.response.send_message(
-                "❌ Bu komutu kullanma yetkin yok.", ephemeral=True
-            )
+    async def ai_basla(self, interaction: discord.Interaction):
 
-        channel = interaction.channel
-        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-            return await interaction.response.send_message(
-                "Bu komut sadece metin kanallarında kullanılabilir.", ephemeral=True
+        if not self.has_admin_role(interaction):
+            await interaction.response.send_message(
+                "❌ Bu komutu kullanma yetkin yok.",
+                ephemeral=True
             )
+            return
 
-        if not is_ticket_channel(channel):
-            return await interaction.response.send_message(
-                "Bu komut sadece ticket kanallarında kullanılabilir.", ephemeral=True
-            )
+        toggle_channel_ai(interaction.channel_id, True)
 
-        set_channel_override(channel.id, True)
         await interaction.response.send_message(
-            "✅ Bu kanalda AI yanıtları **AKTİF** edildi (global ayar da açıksa).",
-            ephemeral=True,
+            f"✅ AI **bu kanalda** aktif edildi.",
+            ephemeral=False
         )
+
+    # ====================================================
+    # /ai-aktif → Global olarak tüm sunucuda AI açılır
+    # ====================================================
+    @app_commands.command(
+        name="ai-aktif",
+        description="Sunucudaki tüm kanallarda yapay zekayı aktif eder."
+    )
+    async def ai_aktif(self, interaction: discord.Interaction):
+
+        if not self.has_admin_role(interaction):
+            await interaction.response.send_message(
+                "❌ Bu komutu kullanma yetkin yok.",
+                ephemeral=True
+            )
+            return
+
+        toggle_global_ai(True)
+
+        await interaction.response.send_message(
+            f"🌍 AI **TÜM SUNUCUDA** aktif edildi.",
+            ephemeral=False
+        )
+
+    # ====================================================
+    # /ai-inaktif → Global olarak tüm AI kapanır
+    # ====================================================
+    @app_commands.command(
+        name="ai-inaktif",
+        description="Sunucudaki tüm kanallarda yapay zekayı devre dışı bırakır."
+    )
+    async def ai_inaktif(self, interaction: discord.Interaction):
+
+        if not self.has_admin_role(interaction):
+            await interaction.response.send_message(
+                "❌ Bu komutu kullanma yetkin yok.",
+                ephemeral=True
+            )
+            return
+
+        toggle_global_ai(False)
+
+        await interaction.response.send_message(
+            f"🛑 AI **TÜM SUNUCUDA** devre dışı bırakıldı.",
+            ephemeral=False
+        )
+
+
+# ==========================================================
+# Slash komutlarını bota kaydeden fonksiyon
+# ==========================================================
+def register_admin_commands(tree: app_commands.CommandTree):
+    tree.add_command(AdminCommands(tree.client).ai_dur)
+    tree.add_command(AdminCommands(tree.client).ai_basla)
+    tree.add_command(AdminCommands(tree.client).ai_aktif)
+    tree.add_command(AdminCommands(tree.client).ai_inaktif)
